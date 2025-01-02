@@ -1,10 +1,6 @@
 from pydub import AudioSegment
 import time
 
-# AudioSegment.converter = "/usr/local/bin/ffmpeg"
-
-inbound = AudioSegment.from_wav("./data/inbound/example.wav")
-
 timeline = [
     {
       "message": 'ブーブー',
@@ -126,6 +122,20 @@ timeline = [
       "created_at": '2024-12-23T16:13:11.352Z',
     },
     {
+      "message": '社長はいらっしゃいますか？',
+      "speaker_type": 'OUTBOUND',
+      "file": './data/outbound/社長はいらっしゃいますか？.wav',
+      "status": 'DONE',
+      "created_at": '2024-12-23T16:13:11.352Z',
+    },
+    {
+      "message": '社長はいらっしゃいますか？',
+      "speaker_type": 'OUTBOUND',
+      "file": './data/outbound/社長はいらっしゃいますか？.wav',
+      "status": 'DONE',
+      "created_at": '2024-12-23T16:13:11.352Z',
+    },
+    {
       "message": 'おー、ミックスがないね',
       "started_sec": 14.227920000000001,
       "ended_sec": 17.372880000000002,
@@ -187,7 +197,7 @@ timeline = [
       "status": 'TODO',
       "created_at": '2024-12-23T16:13:38.761Z',
     },
-    {
+      {
       "message": 'ありがとうございます、よろしくお願いします',
       "speaker_type": 'OUTBOUND',
       "file": './data/outbound/ありがとうございます。よろしくお願いいたします。.wav',
@@ -220,44 +230,27 @@ timeline = [
     },
   ]
 
-# Lưu thời gian kết thúc cuối cùng đã overlay
-last_end_time = 0
+# Load inbound audio
+inbound_audio = AudioSegment.from_wav("./data/inbound/example.wav")
 
-index = 0
-while index < len(timeline):
-  # Item hiện tại trong timeline
-  entry = timeline[index] 
+# Thời gian merge
+merge_time_ms = 0  
 
-  # Tìm kiếm OUTBOUND
-  if entry["speaker_type"] == 'OUTBOUND':
-      audio = AudioSegment.from_wav(entry["file"]) 
-      
-      if index - 1 >= 0:
-          previous_entry = timeline[index - 1]
+for index, segment in enumerate(timeline):
+    if segment['speaker_type'] == 'INBOUND':
+        merge_time_ms = (segment['ended_sec'] + 1) * 1000  # Add silence 1s
+        continue
 
-          # Trước là INBOUND,
-          if previous_entry["speaker_type"] == 'INBOUND':
-              last_end_time = float(previous_entry["ended_sec"] * 1000)
-            
-          # Trước là OUTBOUND 
-          elif previous_entry["speaker_type"] == 'OUTBOUND':
-              last_end_time += len(audio)
+    if segment["speaker_type"] == "OUTBOUND":
+        # Load file outbound tương ứng
+        outbound_audio = AudioSegment.from_wav(segment["file"])
 
-      # Overlay tại last_end_time
-      inbound = inbound.overlay(audio, position=last_end_time)
+        # Chèn outbound vào vị trí hiện tại
+        inbound_audio = inbound_audio.overlay(outbound_audio, position=merge_time_ms)
+        
+        # Cập nhật thời gian merge nếu outbound liền nhau
+        merge_time_ms += outbound_audio.duration_seconds * 1000
 
-      # Cập nhật last_end_time sau khi overlay
-      last_end_time += len(audio)
-
-  # Nếu là INBOUND, cập nhật last_end_time
-  elif entry["speaker_type"] == 'INBOUND':
-      last_end_time = float(entry["ended_sec"] * 1000)    
-
-  # Tăng index 
-  index += 1
-
-# Xuất file âm thanh sau khi combine  
+# Xuất file kết quả
 timestamp = int(time.time()) 
-inbound.export(f"output-with-overlay-{timestamp}.wav", format="wav")
-
-
+inbound_audio.export(f"output-with-overlay-{timestamp}.wav", format="wav")
